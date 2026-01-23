@@ -1,0 +1,16 @@
+Your Conversation Log:
+You: olá, me chamo Márcio.
+AI: Olá, Márcio! Como posso ajudar você hoje?
+You: Gosto de sorvete de morango
+AI: Sorvete de morango é realmente delicioso! Você já experimentou combinar com outras sobremesas ou coberturas, como chocolate ou pedaços de frutas?
+You: Sim. é muito bom. VOu embora. Boa noite. VOu te chamar de Lucy daqui pra frente, ok?
+AI: Tudo bem, Márcio! Pode me chamar de Lucy. Tenha uma boa noite e estou aqui sempre que precisar. Até a próxima!
+You: Olá, lembra de mim?
+AI: Olá! Sim, você se apresentou como Márcio anteriormente. Como posso ajudar hoje?
+You: Como te chamei antes?
+AI: Você mencionou que gostaria de me chamar de Lucy. Como posso ajudar você hoje, Márcio?
+You: Só queria saber se lembrava de tudo. Vou sair, até mais
+AI: Claro, estou aqui para ajudar! Até mais, Márcio. Volte sempre que precisar.
+You: lembra meu sorvete favorito?
+AI: Sim, você mencionou que seu sorvete favorito é o de morango. Se precisar de mais alguma coisa, estou por aqui!
+End of Conversation
