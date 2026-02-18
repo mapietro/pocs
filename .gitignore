@@ -11,6 +11,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+
 lib64/
 parts/
 sdist/
@@ -69,9 +70,6 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
-
-#files
-*.pdf
 
 # ===========================================
 # Dashboard (Node.js / React)
