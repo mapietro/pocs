@@ -4,7 +4,7 @@ import json
 # --- CONFIGURAÇÕES ---
 # Substitua pelos seus dados reais
 PHONE_NUMBER_ID = "875239575680979"  # Aquele ID que começa com 1 ou 2
-ACCESS_TOKEN = "EAATmgrEZBe1wBQeHFDDUpmiwyyQ7njHo1BfejTt26x4kd3wm2rR6DIcRkdOtYZCkE4ZCYZB1iLMLhNH3TCR3uMhxpXKM28N7CwQqcgGMvYEpMHCBupYlbigSNu79KcyWIAwAISLrpccHDcdq63XhfnCjWLHRGZC2d1AX6WH8d5T45K53uPURVwV6O4fRRJAZDZD"   # Aquele token do Usuário do Sistema
+ACCESS_TOKEN = ""   # Aquele token do Usuário do Sistema
 
 # Seu número pessoal para receber o teste (com 55 e DDD)
 RECIPIENT_NUMBER = "5511990257244" 

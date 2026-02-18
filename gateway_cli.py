@@ -1,14 +1,18 @@
 """
- Requisitos: pip install requests
- Variáveis de ambiente:
+Requisitos: pip install requests
+Opcional: pip install python-dotenv
+Variáveis de ambiente:
 
- WHATSAPP_GATEWAY_API_KEY (obrigatório)
-
-GATEWAY_BASE_URL (opcional, default http://localhost:8000)
+- WHATSAPP_GATEWAY_API_KEY (obrigatório)
+- GATEWAY_BASE_URL (opcional, default http://localhost:8000)
 """
 
 
-from dotenv import load_dotenv  # <--- Adicione isto
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    def load_dotenv() -> bool:
+        return False
 import os
 import sys
 import time
@@ -41,19 +45,93 @@ def http_get(path: str, params: dict | None = None) -> dict:
     url = f"{BASE_URL}{path}"
     r = requests.get(url, headers=HEADERS, params=params or {}, timeout=30)
     r.raise_for_status()
+    if not r.content:
+        return {}
     return r.json()
 
 
-def http_post_json(path: str, payload: dict) -> dict:
+def http_post_json(path: str, payload: dict | None = None) -> dict:
     url = f"{BASE_URL}{path}"
+    headers = dict(HEADERS)
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
     r = requests.post(
         url,
-        headers={**HEADERS, "Content-Type": "application/json"},
+        headers=headers,
         json=payload,
         timeout=60,
     )
     r.raise_for_status()
+    if not r.content:
+        return {}
     return r.json()
+
+
+def compact_payload(payload: dict) -> dict:
+    return {k: v for k, v in payload.items() if v is not None}
+
+
+# ----------------------------
+# Gateway: Send
+# ----------------------------
+def send_media(
+    to: str,
+    media_asset_id: str,
+    msg_type: str,
+    message_id: str | None = None,
+    caption: str | None = None,
+    phone_number_id: str | None = None,
+) -> dict:
+    payload = compact_payload(
+        {
+            "to": to,
+            "type": msg_type,  # "audio" ou "document"
+            "media_asset_id": media_asset_id,
+            "message_id": message_id or f"cli-{int(time.time())}",
+            "caption": caption,
+            "phone_number_id": phone_number_id,
+        }
+    )
+    return http_post_json("/gateway/send", payload)
+
+
+def send_text(to: str, text: str, message_id: str | None = None, phone_number_id: str | None = None) -> dict:
+    payload = compact_payload(
+        {
+            "to": to,
+            "type": "text",
+            "text": text,
+            "message_id": message_id or f"cli-{int(time.time())}",
+            "phone_number_id": phone_number_id,
+        }
+    )
+    return http_post_json("/gateway/send", payload)
+
+
+def send_template(
+    to: str,
+    template_name: str,
+    language: str = "pt_BR",
+    message_id: str | None = None,
+    phone_number_id: str | None = None,
+) -> dict:
+    payload = compact_payload(
+        {
+            "to": to,
+            "type": "template",
+            "template": {"name": template_name, "language": language},
+            "message_id": message_id or f"cli-{int(time.time())}",
+            "phone_number_id": phone_number_id,
+        }
+    )
+    return http_post_json("/gateway/send", payload)
+
+
+def get_conversation_state(external_id: str, phone_number_id: str | None = None) -> dict:
+    params = {}
+    if phone_number_id:
+        params["phone_number_id"] = phone_number_id
+    return http_get(f"/gateway/conversations/{external_id}", params=params)
 
 
 def iso_now_utc() -> str:
@@ -63,8 +141,11 @@ def iso_now_utc() -> str:
 # ----------------------------
 # Gateway: Conversations & Messages
 # ----------------------------
-def list_conversations(limit: int = 20) -> dict:
-    return http_get("/gateway/conversations", params={"limit": limit})
+def list_conversations(limit: int = 20, phone_number_id: str | None = None) -> dict:
+    params = {"limit": limit}
+    if phone_number_id:
+        params["phone_number_id"] = phone_number_id
+    return http_get("/gateway/conversations", params=params)
 
 
 def list_messages(conversation_id: str, limit: int = 50, cursor: str | None = None) -> dict:
@@ -228,30 +309,21 @@ def media_download_file(media_asset_id: str, out_dir: str = ".") -> Path:
 
 
 # ----------------------------
-# Gateway: Send media message (requires conversation_id in your API)
-# ----------------------------
-def send_media(to: str, conversation_id: str, media_asset_id: str, msg_type: str, message_id: str | None = None) -> dict:
-    payload = {
-        "to": to,
-        "conversation_id": conversation_id,
-        "type": msg_type,  # "audio" ou "document"
-        "media_asset_id": media_asset_id,
-        "message_id": message_id or f"cli-{int(time.time())}",
-    }    
-    return http_post_json("/gateway/send", payload)
-
-
-# ----------------------------
 # CLI Entrypoint
 # ----------------------------
 def main():
     parser = argparse.ArgumentParser(
-        description="CLI pseudo-front para testar Polling (Chat Read APIs) + Mídia (upload/download/send) no WhatsApp Gateway"
+        description="CLI para testar /gateway (chat read, send e media) no WhatsApp Gateway"
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_conv = sub.add_parser("conversations", help="Listar conversas do tenant")
     p_conv.add_argument("--limit", type=int, default=20)
+    p_conv.add_argument("--phone-number-id", default=None)
+
+    p_state = sub.add_parser("conversation-state", help="Consultar estado técnico de uma conversa por external_id")
+    p_state.add_argument("external_id", help="wa_id / telefone do cliente")
+    p_state.add_argument("--phone-number-id", default=None)
 
     p_hist = sub.add_parser("messages", help="Listar histórico de mensagens de uma conversa (1 página)")
     p_hist.add_argument("conversation_id")
@@ -276,17 +348,36 @@ def main():
     p_dl.add_argument("media_asset_id")
     p_dl.add_argument("--out", default=".", help="Diretório de saída")
 
-    p_send = sub.add_parser("send-media", help="Enviar mensagem com mídia usando conversation_id + media_asset_id")
+    p_send = sub.add_parser("send-media", help="Enviar mensagem com mídia via /gateway/send")
     p_send.add_argument("--to", required=True, help="Destinatário (wa_id/telefone), ex: 5511999999999")
-    p_send.add_argument("--conversation-id", required=True, help="UUID da conversa (você disse que vai pegar do banco)")
     p_send.add_argument("--media-asset-id", required=True)
     p_send.add_argument("--type", required=True, choices=["audio", "document"])
     p_send.add_argument("--message-id", default=None)
+    p_send.add_argument("--caption", default=None)
+    p_send.add_argument("--phone-number-id", default=None)
+
+    p_send_text = sub.add_parser("send-text", help="Enviar mensagem de texto via /gateway/send")
+    p_send_text.add_argument("--to", required=True)
+    p_send_text.add_argument("--text", required=True)
+    p_send_text.add_argument("--message-id", default=None)
+    p_send_text.add_argument("--phone-number-id", default=None)
+
+    p_send_tpl = sub.add_parser("send-template", help="Enviar template via /gateway/send")
+    p_send_tpl.add_argument("--to", required=True)
+    p_send_tpl.add_argument("--name", required=True, help="Nome do template")
+    p_send_tpl.add_argument("--lang", default="pt_BR", help="Idioma do template (default pt_BR)")
+    p_send_tpl.add_argument("--message-id", default=None)
+    p_send_tpl.add_argument("--phone-number-id", default=None)
 
     args = parser.parse_args()
 
     if args.cmd == "conversations":
-        data = list_conversations(limit=args.limit)
+        data = list_conversations(limit=args.limit, phone_number_id=args.phone_number_id)
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    if args.cmd == "conversation-state":
+        data = get_conversation_state(args.external_id, phone_number_id=args.phone_number_id)
         print(json.dumps(data, indent=2, ensure_ascii=False))
         return
 
@@ -318,10 +409,32 @@ def main():
     if args.cmd == "send-media":
         resp = send_media(
             to=args.to,
-            conversation_id=args.conversation_id,
             media_asset_id=args.media_asset_id,
             msg_type=args.type,
             message_id=args.message_id,
+            caption=args.caption,
+            phone_number_id=args.phone_number_id,
+        )
+        print(json.dumps(resp, indent=2, ensure_ascii=False))
+        return
+
+    if args.cmd == "send-text":
+        resp = send_text(
+            to=args.to,
+            text=args.text,
+            message_id=args.message_id,
+            phone_number_id=args.phone_number_id,
+        )
+        print(json.dumps(resp, indent=2, ensure_ascii=False))
+        return
+
+    if args.cmd == "send-template":
+        resp = send_template(
+            to=args.to,
+            template_name=args.name,
+            language=args.lang,
+            message_id=args.message_id,
+            phone_number_id=args.phone_number_id,
         )
         print(json.dumps(resp, indent=2, ensure_ascii=False))
         return
