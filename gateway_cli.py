@@ -28,8 +28,11 @@ import requests
 # ----------------------------
 load_dotenv()
 
-BASE_URL = os.getenv("GATEWAY_BASE_URL", "http://localhost:8000").rstrip("/")
+BASE_URL = os.getenv("GATEWAY_BASE_URL").rstrip("/")
 API_KEY = os.getenv("WHATSAPP_GATEWAY_API_KEY")
+print(f'ESTA É A NOSSA LINDA URL=========== {BASE_URL} ===========================')
+print(f'ESTA É A NOSSA API KEY=========== {API_KEY} ===========================')
+
 
 if not API_KEY:
     print("ERRO: defina a variável WHATSAPP_GATEWAY_API_KEY no ambiente.")
